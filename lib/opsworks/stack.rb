@@ -9,7 +9,7 @@ module OpsWorks
     def self.all
       regions = Aws.partition('aws').regions.select do |region|
         region.services.include?('OpsWorks')
-      end.map(&:name)
+      end.map(&:name) | %w(eu-west-3 ca-central-1)
 
       stack_queue = Queue.new
 
@@ -103,13 +103,21 @@ module OpsWorks
       create_deployment(command: { name: 'update_custom_cookbooks' })
     end
 
-    def execute_recipe(recipe)
-      create_deployment(
+    def execute_recipe(recipe, layer: nil)
+      deploy_args = {
         command: {
           name: 'execute_recipes',
           args: { 'recipes' => [recipe] }
         }
-      )
+      }
+
+      if layer
+        layer = layers.find { |l| l.shortname == layer }
+        raise "Layer #{layer} not found" unless layer
+        deploy_args[:layer_ids] = [layer.id]
+      end
+
+      create_deployment(**deploy_args)
     end
 
     def deploy_app(app, layer: nil, args: {})
